@@ -52,7 +52,10 @@ let calibrationValue2 (input : string) =
         |> Array.choose (fun (c, num) ->
             match input.IndexOf c with
             | -1 -> None
-            | i -> Some (i, num))
+            | i -> match input.LastIndexOf c with
+                   | j when i = j -> Some [|(i, num)|]
+                   | j -> Some [|(i, num); (j, num)|])
+        |> Array.concat
 
     let firstNum = digitByIndex |> Array.minBy fst |> snd
     let lastNum = digitByIndex |> Array.maxBy fst |> snd
