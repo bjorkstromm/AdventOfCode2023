@@ -20,6 +20,7 @@ type SchematicNumber = {
     Start: (int * int)
     Stop: (int * int)
     IsPartNumber: bool
+    Gears: (int * int) []
 }
 
 let parse file =
@@ -37,19 +38,30 @@ let parse file =
     |> array2D
 
 let numbers (schematic : Symbol[,]) =
-    let isPartNumber (y, s, e)  =
+    let adjacent (y, s, e) =
         let xlen = Array2D.length2 schematic
         let ylen = Array2D.length1 schematic
-        let over = if y > 0 then schematic.[y-1,s..e] else [||]
-        let under = if y < ylen - 1 then schematic.[y+1,s..e] else [||]
+        let over = if y > 0 then schematic.[y-1,s..e] |> Array.mapi (fun i c -> (y-1, s+i), c) else [||]
+        let under = if y < ylen - 1 then schematic.[y+1,s..e] |> Array.mapi (fun i c -> (y+1, s+i), c) else [||]
         let ys = if y > 0 then y - 1 else y
         let ye = if y < xlen - 1 then y + 1 else y
-        let left = if s > 0 then schematic.[ys..ye,s-1] else [||]
-        let right = if e < xlen - 1 then schematic.[ys..ye,e+1] else [||]
+        let left = if s > 0 then schematic.[ys..ye,s-1] |> Array.mapi (fun i c -> (ys+i, s-1), c) else [||]
+        let right = if e < xlen - 1 then schematic.[ys..ye,e+1] |> Array.mapi (fun i c -> (ys+i, e+1), c) else [||]
 
         [|over;under;left;right|]
         |> Array.concat
-        |> Array.exists _.IsSymbolic
+
+    let isPartNumber (adjacent : ((int * int) * Symbol) []) =
+        adjacent
+        |> Array.exists (fun (_, s) -> s.IsSymbolic)
+
+    let gears (adjacent : ((int * int) * Symbol) []) =
+        adjacent
+        |> Array.choose (fun (p, s) ->
+            match s with
+            | Symbol c when c = '*' -> Some p
+            | _ -> None
+        )
 
     let processLine y =
         let rec loop (symbols : (int * Symbol) []) =
@@ -65,11 +77,13 @@ let numbers (schematic : Symbol[,]) =
                     |> Array.rev
                     |> Array.mapi (fun i (_, Number n) -> (pown 10 i) * n)
                     |> Array.reduce (+)
+                let adjacent = adjacent (y, startIndex, stopIndex)
                 { 
                     Number = number
                     Start = (y, startIndex)
                     Stop = (y, stopIndex)
-                    IsPartNumber = isPartNumber (y, startIndex, stopIndex)
+                    IsPartNumber = isPartNumber adjacent
+                    Gears = gears adjacent
                 } :: if skip >= start.Length then []
                     else (loop (start |> Array.skip skip))
 
@@ -88,3 +102,18 @@ let part1 filename =
     |> numbers
     |> Seq.filter _.IsPartNumber
     |> Seq.sumBy _.Number
+
+let part2 filename =
+    filename
+    |> parse
+    |> numbers
+    |> List.toArray
+    |> Array.collect (fun n -> n.Gears |> Array.map (fun g -> (g, n.Number)))
+    |> Array.groupBy fst
+    |> Array.choose (fun (_, (g)) ->
+        match g with
+        | [|(_,x);(_,y)|] -> Some ((bigint(x) * bigint(y)))
+        | _ -> None)
+    |> Array.sum
+
+"test.txt" |> part2
