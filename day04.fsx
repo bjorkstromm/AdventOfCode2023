@@ -87,5 +87,3 @@ let part2 (filename : string) =
     |> Array.fold play played
     |> Seq.map (fun kv -> (kv.Key, kv.Value))
     |> Seq.sumBy snd
-
-part2 "day04.txt"
