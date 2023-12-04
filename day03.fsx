@@ -115,5 +115,3 @@ let part2 filename =
         | [|(_,x);(_,y)|] -> Some ((bigint(x) * bigint(y)))
         | _ -> None)
     |> Array.sum
-
-"test.txt" |> part2
