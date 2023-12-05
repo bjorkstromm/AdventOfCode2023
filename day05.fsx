@@ -18,6 +18,12 @@ type Range =
             Max = src + len
             Offset = dst
         }
+    static member inverse this =
+        {
+            Min = this.Offset
+            Max = this.Offset + (this.Max - this.Min)
+            Offset = this.Min
+        }
 
 [<TailCall>]
 let rec convert value ranges =
@@ -37,6 +43,15 @@ type Almanac = {
     LightToTemperature : Range list
     TemperatureToHumidity : Range list
     HumidityToLocation : Range list
+
+    // Inverse for part 2
+    LocationToHumidity : Range list
+    HumidityToTemperature : Range list
+    TemperatureToLight : Range list
+    LightToWater : Range list
+    WaterToFertilizer : Range list
+    FertilizerToSoil : Range list
+    SoilToSeed : Range list
 } with
     static member Empty = {
         Seeds = List.Empty
@@ -47,6 +62,13 @@ type Almanac = {
         LightToTemperature = List.empty
         TemperatureToHumidity = List.empty
         HumidityToLocation = List.empty
+        LocationToHumidity = List.Empty
+        HumidityToTemperature = List.Empty
+        TemperatureToLight = List.Empty
+        LightToWater = List.Empty
+        WaterToFertilizer = List.Empty
+        FertilizerToSoil = List.Empty
+        SoilToSeed = List.Empty
     }
 
 type Plant = {
@@ -58,7 +80,17 @@ type Plant = {
     Temperature : uint64
     Humidity : uint64
     Location : uint64
-}
+} with
+    static member Empty = {
+        Seed = 0UL
+        Soil = 0UL
+        Fertilizer = 0UL
+        Water = 0UL
+        Light = 0UL
+        Temperature = 0UL
+        Humidity = 0UL
+        Location = 0UL
+    }
 
 let (|Integer|_|) (str: string) =
    let mutable value = 0UL
@@ -98,14 +130,16 @@ let parse filename =
         | MapRange (s,d,len) -> (almanac, (src,dst), (Range.create s d len)::ranges)
         | "" -> 
             let map = ranges |> List.rev
+            // Inverse map for part 2
+            let inverseMap = map |> List.map Range.inverse
             let almanac = match (src,dst) with
-                          | ("seed","soil") -> { almanac with SeedToSoil = map }
-                          | ("soil","fertilizer") -> { almanac with SoilToFertilizer = map }
-                          | ("fertilizer","water") -> { almanac with FertilizerToWater = map }
-                          | ("water","light") -> { almanac with WaterToLight = map }
-                          | ("light","temperature") -> { almanac with LightToTemperature = map }
-                          | ("temperature","humidity") -> { almanac with TemperatureToHumidity = map }
-                          | ("humidity","location") -> { almanac with HumidityToLocation = map }
+                          | ("seed","soil") -> { almanac with SeedToSoil = map; SoilToSeed = inverseMap }
+                          | ("soil","fertilizer") -> { almanac with SoilToFertilizer = map; FertilizerToSoil = inverseMap }
+                          | ("fertilizer","water") -> { almanac with FertilizerToWater = map; WaterToFertilizer = inverseMap }
+                          | ("water","light") -> { almanac with WaterToLight = map; LightToWater = inverseMap }
+                          | ("light","temperature") -> { almanac with LightToTemperature = map; TemperatureToLight = inverseMap }
+                          | ("temperature","humidity") -> { almanac with TemperatureToHumidity = map; HumidityToTemperature = inverseMap }
+                          | ("humidity","location") -> { almanac with HumidityToLocation = map; LocationToHumidity = inverseMap }
                           | _ -> almanac
             (almanac, ("",""), List.empty)
         | s -> failwithf "Unexpected input: %s" s
@@ -143,3 +177,30 @@ let part1 filename =
     |> parse
     |> exec
     |> List.minBy (fun plant -> plant.Location)
+
+// Part 2
+let part2 filename =
+    let almanac = filename |> parse
+    let seeds =
+        almanac.Seeds
+        |> List.chunkBySize 2
+        |> List.map (fun xs ->
+            match xs with
+            | [s;len] -> (s,s+len)
+            | _ -> failwithf "Unexpected input %A" xs)
+
+    seq {
+        for location in seq { 0UL .. UInt64.MaxValue } do
+            let humidity = almanac.LocationToHumidity |> convert location
+            let temperature = almanac.HumidityToTemperature |> convert humidity
+            let light = almanac.TemperatureToLight |> convert temperature
+            let water = almanac.LightToWater |> convert light
+            let fertilizer = almanac.WaterToFertilizer |> convert water
+            let soil = almanac.FertilizerToSoil |> convert fertilizer
+            let seed = almanac.SoilToSeed |> convert soil
+
+            yield (seed, location)
+    }
+    |> Seq.tryFind (fun (seed, _) ->
+            seeds
+            |> List.exists (fun (min, max) -> seed >= min && seed <= max))
