@@ -2,25 +2,51 @@ open System
 open System.IO
 open System.Text.RegularExpressions
 
+type Range =
+    {
+        Min : uint64
+        Max : uint64
+        Offset : uint64
+    }   
+    static member convert value this  =
+        if value < this.Min || value > this.Max
+        then None
+        else Some (value - this.Min + this.Offset)
+    static member create src dst len =
+        {
+            Min = src
+            Max = src + len
+            Offset = dst
+        }
+
+[<TailCall>]
+let rec convert value ranges =
+    match ranges with
+    | head::tail -> 
+        match head |> Range.convert value with
+        | Some value -> value
+        | None -> tail |> convert value
+    | [] -> value
+
 type Almanac = {
     Seeds : uint64 list
-    SeedToSoil : Map<uint64,uint64>
-    SoilToFertilizer : Map<uint64,uint64>
-    FertilizerToWater : Map<uint64,uint64>
-    WaterToLight : Map<uint64,uint64>
-    LightToTemperature : Map<uint64,uint64>
-    TemperatureToHumidity : Map<uint64,uint64>
-    HumidityToLocation : Map<uint64,uint64>
+    SeedToSoil : Range list
+    SoilToFertilizer : Range list
+    FertilizerToWater : Range list
+    WaterToLight : Range list
+    LightToTemperature : Range list
+    TemperatureToHumidity : Range list
+    HumidityToLocation : Range list
 } with
     static member Empty = {
         Seeds = List.Empty
-        SeedToSoil = Map.empty
-        SoilToFertilizer = Map.empty
-        FertilizerToWater = Map.empty
-        WaterToLight = Map.empty
-        LightToTemperature = Map.empty
-        TemperatureToHumidity = Map.empty
-        HumidityToLocation = Map.empty
+        SeedToSoil = List.empty
+        SoilToFertilizer = List.empty
+        FertilizerToWater = List.empty
+        WaterToLight = List.empty
+        LightToTemperature = List.empty
+        TemperatureToHumidity = List.empty
+        HumidityToLocation = List.empty
     }
 
 type Plant = {
@@ -33,15 +59,6 @@ type Plant = {
     Humidity : uint64
     Location : uint64
 }
-
-let range src dst len =
-    seq {dst..(dst+len)}
-    |> Seq.zip (seq {src..(src+len)})
-
-let map ranges =
-    ranges
-    |> Seq.concat
-    |> Map.ofSeq
 
 let (|Integer|_|) (str: string) =
    let mutable value = 0UL
@@ -78,9 +95,9 @@ let parse filename =
         match line with
         | Seeds seeds -> ({ almanac with Seeds = seeds }, (src,dst), ranges)
         | MapHeader (src,dst) -> (almanac, (src,dst), ranges)
-        | MapRange (s,d,len) -> (almanac, (src,dst), (range s d len)::ranges)
+        | MapRange (s,d,len) -> (almanac, (src,dst), (Range.create s d len)::ranges)
         | "" -> 
-            let map = map ranges
+            let map = ranges |> List.rev
             let almanac = match (src,dst) with
                           | ("seed","soil") -> { almanac with SeedToSoil = map }
                           | ("soil","fertilizer") -> { almanac with SoilToFertilizer = map }
@@ -99,22 +116,17 @@ let parse filename =
         |> Array.fold folder (Almanac.Empty, ("",""), List.empty)
     almanac
 
-let convert almanac =
-    let getnum map key =
-        match Map.tryFind key map with
-        | Some value -> value
-        | None -> key
-
+let exec almanac =
     almanac.Seeds
     |> List.map (fun seed -> 
         let seed = seed
-        let soil = getnum almanac.SeedToSoil seed
-        let fertilizer = getnum almanac.SoilToFertilizer soil
-        let water = getnum almanac.FertilizerToWater fertilizer
-        let light = getnum almanac.WaterToLight water
-        let temperature = getnum almanac.LightToTemperature light
-        let humidity = getnum almanac.TemperatureToHumidity temperature
-        let location = getnum almanac.HumidityToLocation humidity
+        let soil = almanac.SeedToSoil |> convert seed
+        let fertilizer = almanac.SoilToFertilizer |> convert soil
+        let water = almanac.FertilizerToWater |> convert fertilizer
+        let light = almanac.WaterToLight |> convert water
+        let temperature = almanac.LightToTemperature |> convert light
+        let humidity = almanac.TemperatureToHumidity |> convert temperature
+        let location = almanac.HumidityToLocation |> convert humidity
         { 
             Seed = seed
             Soil = soil
@@ -129,5 +141,5 @@ let convert almanac =
 let part1 filename =
     filename
     |> parse
-    |> convert
+    |> exec
     |> List.minBy (fun plant -> plant.Location)
