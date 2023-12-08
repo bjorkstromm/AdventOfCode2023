@@ -33,30 +33,26 @@ type Hand =
         let groups = this.Cards |> List.groupBy id |> List.map (fun (k, v) -> v |> List.length) |> List.sortDescending
         let jokers = this.Cards |> List.filter (fun c -> c = Card.Joker) |> List.length
         match (groups, jokers) with
-        | ([5],         _)   -> HandType.FiveOfAKind
-
-        | ([4;1],       1)   -> HandType.FiveOfAKind
-        | ([4;1],       _)   -> HandType.FourOfAKind
-
-        | ([3;2],       3)   -> HandType.FiveOfAKind
-        | ([3;2],       2)   -> HandType.FiveOfAKind
-        | ([3;2],       _)   -> HandType.FullHouse
-
-        | ([3;1;1],     3)   -> HandType.FourOfAKind
-        | ([3;1;1],     1)   -> HandType.FourOfAKind
-        | ([3;1;1],     _)   -> HandType.ThreeOfAKind
-
-        | ([2;2;1],     2)   -> HandType.FourOfAKind
-        | ([2;2;1],     1)   -> HandType.FullHouse
-        | ([2;2;1],     _)   -> HandType.TwoPairs
-
-        | ([2;1;1;1],   2)   -> HandType.ThreeOfAKind
-        | ([2;1;1;1],   1)   -> HandType.ThreeOfAKind
-        | ([2;1;1;1],   _)   -> HandType.OnePair
-
-        | ([1;1;1;1;1], 1)   -> HandType.OnePair
-        | ([1;1;1;1;1], _)   -> HandType.HighCard
-        | (_          , _)   -> HandType.HighCard
+        | ([5], 5)          -> HandType.FiveOfAKind
+        | ([5], 0)          -> HandType.FiveOfAKind
+        | ([4; 1], 4)       -> HandType.FiveOfAKind
+        | ([4; 1], 1)       -> HandType.FiveOfAKind
+        | ([4; 1], 0)       -> HandType.FourOfAKind
+        | ([3; 2], 3)       -> HandType.FiveOfAKind
+        | ([3; 2], 2)       -> HandType.FiveOfAKind
+        | ([3; 2], 0)       -> HandType.FullHouse
+        | ([3; 1; 1], 3)    -> HandType.FourOfAKind
+        | ([3; 1; 1], 1)    -> HandType.FourOfAKind
+        | ([3; 1; 1], 0)    -> HandType.ThreeOfAKind
+        | ([2; 2; 1], 2)    -> HandType.FourOfAKind
+        | ([2; 2; 1], 1)    -> HandType.FullHouse
+        | ([2; 2; 1], 0)    -> HandType.TwoPairs
+        | ([2; 1; 1; 1], 2) -> HandType.ThreeOfAKind
+        | ([2; 1; 1; 1], 1) -> HandType.ThreeOfAKind
+        | ([2; 1; 1; 1], 0) -> HandType.OnePair
+        | ([1; 1; 1; 1; 1], 1)  -> HandType.OnePair
+        | ([1; 1; 1; 1; 1], 0)  -> HandType.HighCard
+        | _  -> failwithf "Invalid hand %A" this
 
     interface IComparable with
         member this.CompareTo other =
@@ -118,21 +114,9 @@ let parse (filename : string) =
     |> System.IO.File.ReadAllLines
     |> Array.map parseHand
 
-let debug filename =
-    filename
-    |> parse
-    |> Array.map (fun hand ->
-        let groups = hand.Cards |> List.groupBy id |> List.map (fun (k, v) -> v |> List.length) |> List.sortDescending
-        let jokers = hand.Cards |> List.filter (fun c -> c = Card.Joker) |> List.length
-        (groups, jokers))
-    |> Array.distinct
-    |> Array.sortDescending
-
 let part2 filename =
     filename
     |> parse
     |> Array.sortDescending
     |> Array.indexed
     |> Array.sumBy (fun (i, hand) -> hand.Bid * (uint64 i + 1UL))
-
-debug "day07.txt"

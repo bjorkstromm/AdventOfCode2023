@@ -105,5 +105,3 @@ let part1 filename =
     |> Array.sortDescending
     |> Array.indexed
     |> Array.sumBy (fun (i, hand) -> hand.Bid * (uint64 i + 1UL))
-
-part1 "test.txt"
