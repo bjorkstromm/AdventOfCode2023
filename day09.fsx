@@ -5,13 +5,13 @@ let diffs nums =
     |> List.map (fun (a, b) -> b - a)
 
 let extrapolate nums =
-    let rec loop state nums =
-        let nums' = nums |> diffs
-        let state = state + nums[^0]
-        if nums' |> List.pairwise |> List.forall (fun (a,b) -> a = b) then
-            state + nums'[^0]
+    let rec loop state (nums : int list) =
+        let state = state + nums.[^0]
+        let nums = nums |> diffs
+        if nums |> List.pairwise |> List.forall (fun (a,b) -> a = b) then
+            state + nums.[^0]
         else
-            nums' |> loop state
+            nums |> loop state
     nums |> loop 0
 
 let parse filename =
